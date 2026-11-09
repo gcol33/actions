@@ -1,0 +1,22 @@
+name: test
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  setup-pandoc:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        method: [auto, package-manager]
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }} (${{ matrix.method }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./setup-pandoc
+        with:
+          method: ${{ matrix.method }}
+      - run: pandoc --version
+        shell: bash

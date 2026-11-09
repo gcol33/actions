@@ -1,0 +1,50 @@
+name: Setup pandoc (with fallback)
+description: >
+  Install pandoc with r-lib/actions/setup-pandoc. A GitHub release-download
+  outage lasts minutes, so a failed download is retried after a wait, and a
+  second failure installs pandoc from the runner's OS package manager
+  (brew, apt, choco), which does not download from GitHub releases.
+
+inputs:
+  method:
+    description: "'auto' (release download, retry, then package manager) or 'package-manager' (package manager only)."
+    required: false
+    default: auto
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pandoc
+      id: first
+      if: inputs.method == 'auto'
+      continue-on-error: true
+      uses: r-lib/actions/setup-pandoc@v2
+
+    - name: Wait before retry
+      if: steps.first.outcome == 'failure'
+      shell: bash
+      run: sleep 90
+
+    - name: Setup pandoc (retry)
+      id: retry
+      if: steps.first.outcome == 'failure'
+      continue-on-error: true
+      uses: r-lib/actions/setup-pandoc@v2
+
+    - name: Setup pandoc (package manager)
+      if: inputs.method == 'package-manager' || (steps.first.outcome == 'failure' && steps.retry.outcome == 'failure')
+      shell: bash
+      run: |
+        case "$RUNNER_OS" in
+          macOS)
+            brew install pandoc
+            pandoc --version | head -1 ;;
+          Linux)
+            sudo apt-get update
+            sudo apt-get install -y pandoc
+            pandoc --version | head -1 ;;
+          Windows)
+            choco install pandoc -y --no-progress
+            echo "C:/Program Files/Pandoc" >> "$GITHUB_PATH"
+            "/c/Program Files/Pandoc/pandoc.exe" --version | head -1 ;;
+        esac
